@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title_extra %} — Настройки{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">⚙️ Настройки</h1>
+    <p class="page-sub">Ученики, учитель, дата и период — всё в одном месте</p>
+
+    <!-- Ученики -->
+    <div class="card">
+        <div class="card-title">👨‍🎓 Ученики ({{ students|length }})</div>
+
+        {% if students %}
+            {% for s in students %}
+            <div class="student-row">
+                <button type="button" class="student-emoji-btn"
+                        onclick="openEmojiPicker({{ s.id }}, this)"
+                        title="Нажмите, чтобы сменить эмодзи">{{ s.avatar_emoji }}</button>
+                <div style="flex:1; min-width:0;">
+                    <div class="fw-800" style="font-size:.93em;">{{ s.get_full_name() }}</div>
+                    <div class="text-xs text-light">ID {{ s.id }}</div>
+                </div>
+                <form method="POST" action="{{ url_for('delete_student', student_id=s.id) }}"
+                      style="margin:0;"
+                      onsubmit="return confirm('Удалить {{ s.get_full_name() }} вместе со всеми оценками и наградами?')">
+                    <button type="submit" class="btn btn-xs btn-outline-danger" title="Удалить ученика">🗑️</button>
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state" style="padding:16px;">
+                <span class="ee" style="font-size:2em;">👥</span>
+                <p>Пока нет учеников.<br>Добавьте первого ниже! 👇</p>
+            </div>
+        {% endif %}
+
+        <div style="border-top:1.5px solid var(--border); margin-top:12px; padding-top:12px;">
+            <div class="card-title" style="font-size:.92em;">➕ Добавить ученика</div>
+            <form method="POST" action="{{ url_for('add_student') }}">
+                <input type="hidden" name="avatar_emoji" value="😊" id="newStudentEmoji">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Имя</label>
+                        <input type="text" name="first_name" class="form-control"
+                               placeholder="Например: Алиса" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Фамилия</label>
+                        <input type="text" name="last_name" class="form-control"
+                               placeholder="Например: Колокольчикова" required>
+                    </div>
+                </div>
+                <div class="emoji-strip">
+                    {% for e in student_emojis[:16] %}
+                    <button type="button" class="emoji-pick {{ 'selected' if e == '😊' }}"
+                            onclick="pickNewStudentEmoji('{{ e }}', this)">{{ e }}</button>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-success btn-full mt-8">💾 Добавить ученика</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Учитель -->
+    <div class="card">
+        <div class="card-title">👩‍🏫 Учитель</div>
+        {% if teacher %}
+        <form method="POST" action="{{ url_for('update_teacher') }}">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Имя</label>
+                    <input type="text" name="first_name" class="form-control"
+                           value="{{ teacher.first_name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Фамилия</label>
+                    <input type="text" name="last_name" class="form-control"
+                           value="{{ teacher.last_name }}" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Эмодзи</label>
+                <div class="emoji-strip">
+                    {% for e in ['👩‍🏫','👨‍🏫','🧑‍🏫','🐈','🦉','📚','☕','🌟'] %}
+                    <button type="button" class="emoji-pick {{ 'selected' if e == teacher.avatar_emoji }}"
+                            onclick="pickTeacherEmoji('{{ e }}', this)">{{ e }}</button>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="avatar_emoji" value="{{ teacher.avatar_emoji }}" id="teacherEmoji">
+            </div>
+            <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Дата портала -->
+    <div class="card">
+        <div class="card-title">📅 Дата портала</div>
+        <p class="text-sm text-light mb-8">
+            «Сегодняшний» день внутри игры — можно двигать, чтобы поиграть за другой день недели.
+        </p>
+        <div class="portal-date-box">
+            📅 {{ get_day_name(current_date) }}, {{ current_date.strftime('%d.%m.%Y') }}
+            {% if custom_date %}<span class="badge" style="background:rgba(var(--primary-rgb),.14); color:var(--primary); margin-left:6px;">задана вручную</span>
+            {% else %}<span class="text-xs text-light">· системная</span>{% endif %}
+        </div>
+        <div class="flex gap-8 flex-wrap mt-8">
+            <form method="POST" action="{{ url_for('set_portal_date') }}" style="margin:0;">
+                <input type="hidden" name="action" value="minus7">
+                <button class="btn btn-ghost btn-sm">⏪ −7 дней</button>
+            </form>
+            <form method="POST" action="{{ url_for('set_portal_date') }}" style="margin:0;">
+                <input type="hidden" name="action" value="minus1">
+                <button class="btn btn-ghost btn-sm">◀ −1 день</button>
+            </form>
+            <form method="POST" action="{{ url_for('set_portal_date') }}" style="margin:0;">
+                <input type="hidden" name="action" value="plus1">
+                <button class="btn btn-ghost btn-sm">+1 день ▶</button>
+            </form>
+            <form method="POST" action="{{ url_for('set_portal_date') }}" style="margin:0;">
+                <input type="hidden" name="action" value="plus7">
+                <button class="btn btn-ghost btn-sm">+7 дней ⏩</button>
+            </form>
+            {% if custom_date %}
+            <form method="POST" action="{{ url_for('set_portal_date') }}" style="margin:0;">
+                <input type="hidden" name="action" value="reset">
+                <button class="btn btn-ghost btn-sm">🔄 Системная дата</button>
+            </form>
+            {% endif %}
+        </div>
+        <form method="POST" action="{{ url_for('set_portal_date') }}" class="flex gap-8 mt-10">
+            <input type="hidden" name="action" value="set">
+            <input type="date" name="date" class="form-control" style="flex:1;"
+                   value="{{ current_date.isoformat() }}" required>
+            <button type="submit" class="btn btn-primary">Задать</button>
+        </form>
+    </div>
+
+    <!-- Период -->
+    <div class="card">
+        <div class="card-title">📆 Учебный период</div>
+        <div class="portal-date-box">
+            {{ 'Четверть' if period_type == 'quarter' else 'Триместр' }} {{ current_period }}
+        </div>
+        <p class="text-sm text-light mt-8 mb-8">
+            Оценки прошлых периодов сохраняются в архиве — средние баллы считаются по текущему.
+        </p>
+        <div class="flex gap-8 flex-wrap">
+            <form method="POST" action="{{ url_for('set_period') }}" style="margin:0;">
+                <input type="hidden" name="action" value="toggle">
+                <button class="btn btn-ghost btn-sm">🔄 На {{ 'триместры' if period_type == 'quarter' else 'четверти' }}</button>
+            </form>
+            <form method="POST" action="{{ url_for('set_period') }}" style="margin:0;">
+                <input type="hidden" name="action" value="next">
+                <button class="btn btn-primary btn-sm">▶️ Следующий период</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ссылки -->
+    <div class="card">
+        <div class="card-title">🔗 Быстрые ссылки</div>
+        <div class="flex gap-8 flex-wrap">
+            <a href="{{ url_for('teacher_subjects') }}" class="btn btn-ghost btn-sm">📚 Предметы</a>
+            <a href="{{ url_for('teacher_schedule') }}" class="btn btn-ghost btn-sm">📅 Расписание</a>
+        </div>
+        <p class="text-xs text-light mt-8">
+            Расписание уроков редактируется в консоли: <code>python console.py</code> → <code>schedule</code>
+        </p>
+    </div>
+</div>
+
+<!-- Модал: выбор эмодзи ученика -->
+<div class="modal-overlay" id="emojiModal">
+    <div class="modal-box">
+        <div class="modal-title">😊 Эмодзи ученика</div>
+        <div class="emoji-grid" id="emojiGrid">
+            {% for e in student_emojis %}
+            <button type="button" class="emoji-pick" onclick="chooseEmoji('{{ e }}')">{{ e }}</button>
+            {% endfor %}
+        </div>
+        <button type="button" class="btn btn-ghost btn-full mt-12" onclick="closeModal('emojiModal')">Отмена</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let emojiTargetId = null;
+
+function openEmojiPicker(studentId) {
+    emojiTargetId = studentId;
+    showModal('emojiModal');
+}
+
+function chooseEmoji(emoji) {
+    if (emojiTargetId === null) return;
+    // Отправляем мини-форму смены эмодзи
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/teacher/settings/student/' + emojiTargetId + '/emoji';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'avatar_emoji';
+    input.value = emoji;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function pickNewStudentEmoji(emoji, el) {
+    document.getElementById('newStudentEmoji').value = emoji;
+    document.querySelectorAll('.emoji-strip .emoji-pick.selected').forEach(b => {
+        if (b.closest('form') && b.closest('form').querySelector('#newStudentEmoji')) b.classList.remove('selected');
+    });
+    el.classList.add('selected');
+}
+
+function pickTeacherEmoji(emoji, el) {
+    document.getElementById('teacherEmoji').value = emoji;
+    document.querySelectorAll('.emoji-strip .emoji-pick.selected').forEach(b => {
+        if (b.closest('form') && b.closest('form').querySelector('#teacherEmoji')) b.classList.remove('selected');
+    });
+    el.classList.add('selected');
+}
+
+// Модалки
+function showModal(id) {
+    document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('open');
+    });
+});
+</script>
+{% endblock %}

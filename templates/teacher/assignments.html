@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title_extra %} — Задания{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📝 Конструктор заданий</h1>
+    <p class="page-sub">Создавай ДЗ и тесты для учеников</p>
+
+    <!-- Форма создания -->
+    <div class="card">
+        <div class="card-title">➕ Новое задание</div>
+        <form method="POST" action="{{ url_for('create_assignment') }}" id="aForm">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>📚 Предмет</label>
+                    <select name="subject_id" class="form-control" required>
+                        {% if subjects %}
+                            {% for s in subjects %}
+                            <option value="{{ s.id }}">{{ s.emoji }} {{ s.name }}</option>
+                            {% endfor %}
+                        {% else %}
+                            <option value="">Нет предметов</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>📋 Тип</label>
+                    <select name="assignment_type" class="form-control" id="aType" onchange="toggleQ()">
+                        <option value="homework">📖 Домашнее задание</option>
+                        <option value="test">📝 Тест с вопросами</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>✏️ Название</label>
+                <input type="text" name="title" class="form-control"
+                       placeholder="Например: Упражнение 42, стр. 56" required>
+            </div>
+
+            <div class="form-group">
+                <label>📄 Описание / Текст задания</label>
+                <textarea name="description" class="form-control" rows="3"
+                          placeholder="Подробности — что нужно сделать..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>📅 Сдать до</label>
+                <input type="date" name="date_due" class="form-control"
+                       value="{{ tomorrow.isoformat() }}" required>
+            </div>
+
+            <!-- Вопросы теста -->
+            <div id="qSection" style="display:none;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin:16px 0 10px;">
+                    <h3 style="font-size:.95em; font-weight:900;">❓ Вопросы теста</h3>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="addQ()">➕ Добавить</button>
+                </div>
+                <div id="qContainer"></div>
+            </div>
+
+            <button type="submit" class="btn btn-success mt-8" style="width:100%;">
+                💾 Создать задание
+            </button>
+        </form>
+    </div>
+
+    <!-- Фильтр по предмету -->
+    {% if subjects %}
+    <div class="tabs">
+        <a href="{{ url_for('teacher_assignments') }}"
+           class="tab {{ 'active' if not filter_subj }}">Все</a>
+        {% for s in subjects %}
+        <a href="{{ url_for('teacher_assignments', subject_id=s.id) }}"
+           class="tab {{ 'active' if filter_subj == s.id }}"
+           style="{{ 'background:' + s.color + ';' if filter_subj == s.id }}">
+            {{ s.emoji }} {{ s.name }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Список заданий -->
+    {% if assignments %}
+        {% for a in assignments %}
+        <div class="assignment-card" style="border-left-color:{{ a.subject.color }};">
+            <div class="assignment-header">
+                <div class="flex items-center gap-6 flex-wrap">
+                    <span class="subject-tag"
+                          style="background:{{ a.subject.color }}22; color:{{ a.subject.color }};">
+                        {{ a.subject.emoji }} {{ a.subject.name }}
+                    </span>
+                    <span class="type-tag {{ 'type-test' if a.assignment_type == 'test' else 'type-hw' }}">
+                        {{ '📝 Тест' if a.assignment_type == 'test' else '📖 ДЗ' }}
+                    </span>
+                </div>
+                <span class="due-badge
+                    {% if a.date_due < today %}overdue
+                    {% elif a.date_due == today %}due-today{% endif %}">
+                    📅 {{ a.date_due.strftime('%d.%m') }}
+                    {% if a.date_due < today %}⚠️
+                    {% elif a.date_due == today %}· сегодня!{% endif %}
+                </span>
+            </div>
+
+            <div class="fw-800 mt-6" style="font-size:.95em;">{{ a.title }}</div>
+
+            {% if a.description %}
+            <p class="text-sm text-light mt-4">
+                {{ a.description[:100] }}{% if a.description | length > 100 %}…{% endif %}
+            </p>
+            {% endif %}
+
+            {% if a.questions %}
+            <p class="text-xs text-light mt-6">❓ Вопросов: {{ a.questions | length }}</p>
+            {% endif %}
+
+            <div class="flex gap-8 mt-10">
+                {% if a.questions %}
+                <a href="{{ url_for('assignment_results', assignment_id=a.id) }}"
+                   class="btn btn-sm btn-primary">📊 Результаты</a>
+                {% endif %}
+                <form method="POST"
+                      action="{{ url_for('delete_assignment', assignment_id=a.id) }}"
+                      style="margin:0;"
+                      onsubmit="return confirm('Удалить задание «{{ a.title }}»?')">
+                    <button type="submit" class="btn btn-sm btn-danger">🗑️ Удалить</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <span class="ee">📭</span>
+            <p>Нет заданий. Создайте первое!</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let qCount = 0;
+
+function toggleQ() {
+    const t = document.getElementById('aType').value;
+    document.getElementById('qSection').style.display = t === 'test' ? 'block' : 'none';
+}
+
+function addQ() {
+    const idx = qCount++;
+    const html = `
+    <div class="q-block" id="qb${idx}">
+        <button type="button" class="q-remove" onclick="document.getElementById('qb${idx}').remove()" title="Удалить вопрос">✕</button>
+        <div class="form-group">
+            <label>Вопрос ${idx + 1}</label>
+            <input type="text" name="question_text_${idx}" class="form-control" placeholder="Текст вопроса..." required>
+        </div>
+        <div class="form-group">
+            <label>Тип ответа</label>
+            <select name="question_type_${idx}" class="form-control" onchange="toggleOpts(${idx}, this.value)">
+                <option value="choice">🔘 Выбор из вариантов</option>
+                <option value="text">✏️ Текстовый ответ</option>
+            </select>
+        </div>
+        <div class="form-group" id="opts${idx}">
+            <label>Варианты ответов (через запятую)</label>
+            <input type="text" name="question_options_${idx}" class="form-control"
+                   placeholder="Вариант А, Вариант Б, Вариант В">
+        </div>
+        <div class="form-group">
+            <label>✅ Правильный ответ</label>
+            <input type="text" name="question_correct_${idx}" class="form-control"
+                   placeholder="Точный правильный ответ (один)">
+        </div>
+    </div>`;
+    document.getElementById('qContainer').insertAdjacentHTML('beforeend', html);
+}
+
+function toggleOpts(idx, type) {
+    const el = document.getElementById('opts' + idx);
+    if (el) el.style.display = type === 'choice' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,24 @@
+[project]
+name = "school-portal-game"
+version = "1.0.0"
+description = "Школьный портал-игра: оценки, домашка, тесты и награды"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+exclude = [".venv", "instance"]
+
+[tool.ruff.lint]
+# E/W — pycodestyle/pyflakes, F — ошибки, I — сортировка импортов,
+# C4 — упрощения, BLE — слепые except
+select = ["E", "W", "F", "I", "C4", "BLE"]
+
+[tool.ruff.lint.per-file-ignores]
+# Интерактивная консоль: sys.path до импортов, слепые except,
+# длинные строки консольных таблиц
+"console.py" = ["BLE001", "E402", "E501"]
+# Миграция — служебный скрипт
+"migrate.py" = ["BLE001"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

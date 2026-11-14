@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title_extra %} — Расписание{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📅 Расписание</h1>
+    <p class="page-sub">Редактирование — только через консоль</p>
+
+    <!-- Быстрые ссылки (только на мобиле, т.к. в десктопной навигации они есть) -->
+    <div class="flex gap-8 flex-wrap mb-12">
+        <a href="{{ url_for('teacher_subjects') }}" class="btn btn-ghost btn-sm">📚 Предметы</a>
+    </div>
+
+    <div class="schedule-info-box">
+        ℹ️ Управление через консоль: <code>python console.py</code> → команда <code>schedule</code>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;">
+    {% for d in range(7) %}
+    {% set lessons = schedule_map.get(d, []) %}
+    {% if d < 6 or lessons %}
+    <div class="card" style="margin-bottom: 0; {{ 'border: 2px solid var(--primary);' if d == today_dow }}">
+        <div class="card-title" style="
+            {{ 'color: var(--primary);' if d == today_dow }}
+            {{ 'color: var(--danger);' if d >= 5 }}
+            margin-bottom: 8px;">
+            {{ day_names[d] }}
+            {% if d == today_dow %}
+            <span class="badge" style="background: rgba(var(--primary-rgb),.12); color: var(--primary); font-size: .7em; margin-left: 4px;">Сегодня</span>
+            {% endif %}
+        </div>
+
+        {% if lessons %}
+            {% for item in lessons %}
+            <div class="diary-lesson">
+                <div class="lesson-num">{{ item.lesson_number }}</div>
+                <div class="lesson-info">
+                    <div class="lesson-subj">{{ item.subject.emoji }} {{ item.subject.name }}</div>
+                    {% if item.time_start %}
+                    <div class="lesson-time">⏰ {{ item.time_start }}{% if item.time_end %} — {{ item.time_end }}{% endif %}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-light text-sm" style="padding: 4px 0;">
+                {% if d >= 5 %}Выходной 🎉{% else %}Нет уроков{% endif %}
+            </p>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    </div>
+
+    <!-- Ссылка на предметы и расписание (для мобиле — только здесь) -->
+    <div class="card mt-12" style="background: linear-gradient(135deg, #f0f4ff, #e8ecff);">
+        <div class="card-title">⚙️ Дополнительно</div>
+        <div class="flex gap-8 flex-wrap">
+            <a href="{{ url_for('teacher_subjects') }}" class="btn btn-primary btn-sm">📚 Управление предметами</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

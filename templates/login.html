@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login-page">
+    <div class="login-card">
+        <div class="school-emoji">🏫</div>
+        <h1>Школьный портал</h1>
+        <p class="subtitle">Выбери свой аккаунт для входа</p>
+
+        <div class="user-list">
+            {% for user in users %}
+            <form method="POST" style="margin:0;">
+                <input type="hidden" name="user_id" value="{{ user.id }}">
+                <button type="submit" class="user-btn {{ 'teacher-btn' if user.role == 'teacher' }}">
+                    <span class="ue">{{ user.avatar_emoji }}</span>
+                    <div>
+                        <div class="un">{{ user.get_full_name() }}</div>
+                        <div class="ur">
+                            {% if user.role == 'teacher' %}
+                                👩‍🏫 Учитель (ID: {{ user.id }})
+                            {% else %}
+                                👨‍🎓 Ученик (ID: {{ user.id }})
+                            {% endif %}
+                        </div>
+                    </div>
+                </button>
+            </form>
+            {% endfor %}
+
+            {% if not users %}
+            <div class="empty-state">
+                <span class="ee">🤷</span>
+                <p>Нет пользователей.<br>Запустите консоль!</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <p class="text-xs text-light mt-8">
+            📅 {{ current_date.strftime('%d.%m.%Y') }}
+        </p>
+    </div>
+</div>
+{% endblock %}

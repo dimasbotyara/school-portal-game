@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title_extra %} — Результаты{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📊 Результаты теста</h1>
+    <p class="page-sub">{{ assignment.title }}</p>
+
+    <a href="{{ url_for('teacher_assignments') }}" class="btn btn-ghost btn-sm mb-12">⬅️ Назад</a>
+
+    <div class="card">
+        <div class="flex gap-12 flex-wrap mb-16">
+            <span class="subject-tag" style="background:{{ assignment.subject.color }}22; color:{{ assignment.subject.color }};">
+                {{ assignment.subject.emoji }} {{ assignment.subject.name }}
+            </span>
+            <span class="text-sm text-light">❓ Вопросов: <strong>{{ questions | length }}</strong></span>
+            <span class="text-sm text-light">👥 Учеников: <strong>{{ students | length }}</strong></span>
+            <span class="text-sm text-light">✅ Сдали: <strong>{{ completions | length }}</strong></span>
+        </div>
+
+        {% if not students %}
+        <div class="empty-state" style="padding:16px;">
+            <span class="ee" style="font-size:2em;">👥</span>
+            <p>Нет учеников</p>
+        </div>
+        {% else %}
+        {% for student in students %}
+        {% set submitted = student.id in completions %}
+        <div style="background:var(--bg); border-radius:var(--r-sm); padding:13px; margin-bottom:10px;">
+            <div class="flex items-center justify-between mb-8" style="flex-wrap:wrap; gap:8px;">
+                <div class="flex items-center gap-8">
+                    <span style="font-size:1.3em;">{{ student.avatar_emoji }}</span>
+                    <span class="fw-800" style="font-size:.95em;">{{ student.get_full_name() }}</span>
+                </div>
+                {% if submitted %}
+                    {% set correct_c = namespace(v=0) %}
+                    {% for q in questions %}
+                        {% set ans = answers_map.get((student.id, q.id)) %}
+                        {% if ans and ans.is_correct %}
+                            {% set correct_c.v = correct_c.v + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    {% set total_q = questions | length %}
+                    {% set pct = ((correct_c.v / total_q) * 100) | int if total_q > 0 else 0 %}
+                    <span class="badge {% if pct >= 80 %}badge-pass{% elif pct >= 50 %}badge-mid{% else %}badge-fail{% endif %}">
+                        ✅ {{ correct_c.v }}/{{ total_q }}
+                    </span>
+                {% else %}
+                    <span class="badge badge-wait">⏳ Не сдано</span>
+                {% endif %}
+            </div>
+
+            {% if submitted and questions %}
+            {% for q in questions %}
+            {% set ans = answers_map.get((student.id, q.id)) %}
+            <div style="font-size:.83em; padding:3px 0; display:flex; gap:6px; align-items:baseline; flex-wrap:wrap;">
+                <span class="text-light" style="flex-shrink:0;">{{ loop.index }}.</span>
+                <span class="text-light" style="flex:1; min-width:0;">
+                    {{ q.text[:50] }}{% if q.text | length > 50 %}…{% endif %}:
+                </span>
+                {% if ans %}
+                    {% if ans.is_correct %}
+                    <span style="color:var(--success); font-weight:800; white-space:nowrap;">✅ {{ ans.answer }}</span>
+                    {% else %}
+                    <span style="color:var(--danger); font-weight:800; white-space:nowrap;">❌ {{ ans.answer }}</span>
+                    <span class="text-light" style="white-space:nowrap;">(→ {{ q.correct_answer }})</span>
+                    {% endif %}
+                {% else %}
+                    <span class="text-light">—</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

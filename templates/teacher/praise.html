@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title_extra %} — Похвалить{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">⭐ Похвалить ученика</h1>
+
+    <div class="grid-2">
+        <!-- Форма -->
+        <div class="card">
+            <div class="card-title">🎁 Отправить награду</div>
+            <form method="POST" action="{{ url_for('send_praise') }}">
+                <div class="form-group">
+                    <label>👨‍🎓 Ученик</label>
+                    <select name="student_id" class="form-control" required>
+                        <option value="">— Выбери ученика —</option>
+                        {% for s in students %}
+                        <option value="{{ s.id }}">{{ s.avatar_emoji }} {{ s.get_full_name() }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>🏆 Тип награды</label>
+                    <div class="praise-grid mt-6">
+                        {% for ptype, emoji, label in praise_types %}
+                        <label class="praise-option {{ 'selected' if loop.first }}"
+                               onclick="selPraise('{{ ptype }}', this)">
+                            <input type="radio" name="praise_type" value="{{ ptype }}"
+                                   style="display:none;" {{ 'checked' if loop.first }}>
+                            <span class="pe">{{ emoji }}</span>
+                            <span class="pl">{{ label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>💬 Сообщение (необязательно)</label>
+                    <textarea name="message" class="form-control" rows="2"
+                              placeholder="Молодец! Отлично поработал(а)! 🌟"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-warning btn-full">
+                    🎉 Отправить награду!
+                </button>
+            </form>
+        </div>
+
+        <!-- Рейтинг -->
+        <div class="card">
+            <div class="card-title">🏆 Рейтинг наград</div>
+            {% set has_praises = namespace(v=false) %}
+            {% for s in students %}
+                {% if praise_counts.get(s.id, 0) > 0 %}
+                    {% set has_praises.v = true %}
+                {% endif %}
+            {% endfor %}
+
+            {% if has_praises.v %}
+                {% for s in students | sort(attribute='id') %}
+                {% set cnt = praise_counts.get(s.id, 0) %}
+                {% if cnt > 0 %}
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border);">
+                    <span style="font-size:1.4em;">{{ s.avatar_emoji }}</span>
+                    <div style="flex:1; min-width:0;">
+                        <div class="fw-700 text-sm" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            {{ s.get_full_name() }}
+                        </div>
+                    </div>
+                    <div class="fw-900" style="color:var(--warning); font-size:1.1em; white-space:nowrap;">
+                        {{ cnt }} ⭐
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-state" style="padding:16px;">
+                    <span class="ee" style="font-size:2em;">📭</span>
+                    <p>Ещё никого не хвалили</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- История похвал -->
+    <div class="card">
+        <div class="card-title">📜 История похвал</div>
+        {% if praises %}
+            {% for p in praises %}
+            <div class="praise-item">
+                <span style="font-size:1.8em; flex-shrink:0;">{{ p.get_emoji() }}</span>
+                <div style="flex:1; min-width:0;">
+                    <div class="fw-800 text-sm">{{ p.student.get_full_name() }}</div>
+                    {% if p.message %}
+                    <div class="text-xs text-light" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        {{ p.message }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="text-xs text-light fw-700" style="flex-shrink:0;">{{ p.date.strftime('%d.%m') }}</div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-light text-sm">Пока нет похвал 📭</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selPraise(type, el) {
+    document.querySelectorAll('.praise-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    el.querySelector('input').checked = true;
+}
+</script>
+{% endblock %}

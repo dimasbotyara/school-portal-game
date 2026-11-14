@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title_extra %} — Дневник{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📖 Мой дневник</h1>
+    <p class="page-sub">Расписание и оценки за неделю</p>
+
+    {% for d in week_days %}
+    {% set dow = d.weekday() %}
+    {% set is_today = d == today %}
+    {% set is_weekend = dow >= 5 %}
+    <div class="diary-day">
+        <div class="diary-day-head {{ 'today-head' if is_today else 'weekend-head' if is_weekend }}">
+            <span class="fw-900">{{ day_names[dow] }}, {{ d.strftime('%d.%m') }}</span>
+            {% if is_today %}
+                <span style="font-size:.85em; opacity:.9;">⬅️ Сегодня</span>
+            {% elif is_weekend %}
+                <span style="font-size:.85em; opacity:.9;">🎉 Выходной</span>
+            {% endif %}
+        </div>
+        <div class="diary-body">
+            {% set lessons = schedule_map.get(dow, []) %}
+
+            {% if is_weekend %}
+                <p class="text-light text-sm" style="padding:8px 0;">Отдыхай! 🎉</p>
+            {% elif lessons %}
+                {% for item in lessons | sort(attribute='lesson_number') %}
+                {% set gkey = (d.isoformat(), item.subject_id) %}
+                <div class="diary-lesson">
+                    <div class="lesson-num">{{ item.lesson_number }}</div>
+                    <div class="lesson-info" style="flex:1; min-width:0;">
+                        <div class="lesson-subj">{{ item.subject.emoji }} {{ item.subject.name }}</div>
+                        {% if item.time_start %}
+                        <div class="lesson-time">⏰ {{ item.time_start }}{% if item.time_end %} — {{ item.time_end }}{% endif %}</div>
+                        {% endif %}
+                    </div>
+                    {% if gkey in grades_by_date_subj %}
+                    <div class="flex gap-4">
+                        {% for g in grades_by_date_subj[gkey] %}
+                        <span class="grade-badge grade-{{ g.value }}">{{ g.value }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-light text-sm" style="padding:8px 0;">Нет уроков</p>
+            {% endif %}
+
+            <!-- ДЗ к этому дню -->
+            {% for a in assignments %}
+            {% if a.date_due == d %}
+            {% set comp = completions.get(a.id) %}
+            {% set done = comp and comp.completed %}
+            <div class="assignment-card {{ 'completed' if done }}"
+                 style="border-left-color:{{ a.subject.color }}; margin-top:10px;">
+                <div class="hw-toggle">
+                    <div class="hw-check {{ 'done' if done }}"
+                         id="dchk{{ a.id }}"
+                         onclick="toggleHW({{ a.id }})">{{ '✓' if done }}</div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="text-xs fw-700" style="color:{{ a.subject.color }}; margin-bottom:2px;">
+                            📝 ДЗ · {{ a.subject.name }}
+                        </div>
+                        <div class="fw-700 text-sm hw-title">{{ a.title }}</div>
+                        {% if a.description %}
+                        <p class="text-xs text-light mt-4">{{ a.description }}</p>
+                        {% endif %}
+                        {% if a.questions | length > 0 %}
+                        <a href="{{ url_for('student_test', assignment_id=a.id) }}"
+                           class="btn btn-xs btn-primary mt-6">
+                            {% if done %}📊 Результат{% else %}📝 Тест{% endif %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleHW(id) {
+    const el = document.getElementById('dchk' + id);
+    fetch('/student/complete_homework/' + id, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            const card = el.closest('.assignment-card');
+            if (d.completed) {
+                el.classList.add('done');
+                el.innerHTML = '✓';
+                card.classList.add('completed');
+            } else {
+                el.classList.remove('done');
+                el.innerHTML = '';
+                card.classList.remove('completed');
+            }
+        }
+    })
+    .catch(() => {});
+}
+</script>
+{% endblock %}

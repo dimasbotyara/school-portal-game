@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% block title_extra %} — Журнал оценок{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📓 Журнал оценок</h1>
+    <p class="page-sub">
+        {{ 'Четверть' if period_type == 'quarter' else 'Триместр' }} {{ current_period }}
+        &nbsp;·&nbsp; {{ today.strftime('%d.%m.%Y') }}
+    </p>
+
+    {% if not subjects %}
+    <div class="empty-state">
+        <span class="ee">📭</span>
+        <p>Нет предметов. Добавьте через раздел «Предметы»</p>
+    </div>
+
+    {% elif not students %}
+    <div class="empty-state">
+        <span class="ee">👥</span>
+        <p>Нет учеников.</p>
+        <a href="{{ url_for('teacher_settings') }}" class="btn btn-primary btn-sm mt-8">➕ Добавить в настройках</a>
+    </div>
+
+    {% else %}
+    <!-- Выбор предмета -->
+    <div class="tabs">
+        {% for subj in subjects %}
+        <a href="{{ url_for('teacher_gradebook', subject_id=subj.id) }}"
+           class="tab {{ 'active' if subject_id == subj.id }}"
+           style="{{ 'background:' + subj.color + '; box-shadow: 0 3px 10px ' + subj.color + '55;' if subject_id == subj.id }}">
+            {{ subj.emoji }} {{ subj.name }}
+        </a>
+        {% endfor %}
+    </div>
+
+    {% if current_subject %}
+    <!-- Инфо о днях урока -->
+    <div class="schedule-info-box">
+        🗓️ <strong>{{ current_subject.emoji }} {{ current_subject.name }}</strong>
+        {% if schedule_days %}
+            — уроки по:
+            {% for d in range(7) %}
+                {% if d in schedule_days %}<strong>{{ day_names[d] }}</strong>{% if not loop.last %}, {% endif %}{% endif %}
+            {% endfor %}
+            &nbsp;·&nbsp; <span style="opacity:.7;">Ячейки без урока некликабельны</span>
+        {% else %}
+            &nbsp;·&nbsp; <span style="opacity:.7;">Предмет не добавлен в расписание</span>
+        {% endif %}
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div style="padding:13px 15px 10px; border-bottom:1px solid var(--border);
+                    display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="fw-900" style="color:{{ current_subject.color }};">
+                {{ current_subject.emoji }} {{ current_subject.name }}
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="showModal('addGradeModal')">
+                ➕ Добавить оценку
+            </button>
+        </div>
+
+        <div class="gradebook-wrapper">
+            <table class="gradebook-table">
+                <thead>
+                    <tr>
+                        <th>Ученик</th>
+                        {% for d in dates %}
+                        <th class="{{ 'col-today' if d == today }}"
+                            style="{{ 'color:var(--danger);' if d.weekday() >= 5 }}">
+                            {{ d.strftime('%d') }}<br>
+                            <span style="font-weight:600; opacity:.8;">{{ get_day_name_short(d) }}</span>
+                        </th>
+                        {% endfor %}
+                        <th class="avg-col-h" style="color:var(--warning);">Ср.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td>
+                            <div class="fw-800" style="font-size:.88em;">{{ student.last_name }}</div>
+                            <div class="text-xs text-light">{{ student.first_name }}</div>
+                        </td>
+                        {% for d in dates %}
+                        {% set key = (student.id, d.isoformat()) %}
+                        {% set has_lesson = d.weekday() in schedule_days %}
+                        <td class="grade-cell {{ '' if has_lesson else 'no-lesson' }}"
+                            {% if has_lesson %}
+                            onclick="openGradePopover(event, {{ student.id }}, '{{ d.isoformat() }}', {{ subject_id }}, '{{ student.last_name }} {{ student.first_name }}')"
+                            title="{{ student.get_full_name() }}, {{ d.strftime('%d.%m') }} — нажмите чтобы поставить оценку"
+                            {% else %}
+                            title="Нет урока в этот день"
+                            {% endif %}>
+                            {% if key in grades_map %}
+                                {% for g in grades_map[key] %}
+                                <span class="grade-badge grade-{{ g.value }}"
+                                      onclick="event.stopPropagation(); openEditPopover(event, {{ g.id }}, {{ g.value }})"
+                                      title="Нажмите чтобы изменить">{{ g.value }}</span>
+                                {% endfor %}
+                            {% elif not has_lesson %}
+                                <span style="color:var(--border); font-size:.75em; user-select:none;">—</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                        <td class="avg-cell avg-col">
+                            {% set avg = averages.get(student.id) %}
+                            {% if avg is not none and avg %}
+                                {% if avg >= 4.5 %}
+                                    <span class="avg-great">{{ avg }}</span>
+                                {% elif avg >= 3.5 %}
+                                    <span class="avg-good">{{ avg }}</span>
+                                {% elif avg >= 2.5 %}
+                                    <span class="avg-ok">{{ avg }}</span>
+                                {% else %}
+                                    <span class="avg-bad">{{ avg }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-light">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<!-- Поповер: поставить оценку -->
+<div id="gradePopover" class="gp" style="display:none;">
+    <div class="gp-title" id="gpTitle">Поставить оценку</div>
+    <button class="gp-btn gp-5" onclick="quickGrade(5)">5 — Отлично ⭐</button>
+    <button class="gp-btn gp-4" onclick="quickGrade(4)">4 — Хорошо 👍</button>
+    <button class="gp-btn gp-3" onclick="quickGrade(3)">3 — Удовл. 😐</button>
+    <button class="gp-btn gp-2" onclick="quickGrade(2)">2 — Плохо 😟</button>
+    <button class="gp-btn gp-1" onclick="quickGrade(1)">1 — Ужас 😱</button>
+</div>
+
+<!-- Поповер: редактировать оценку -->
+<div id="editPopover" class="gp" style="display:none;">
+    <div class="gp-title">Изменить оценку</div>
+    <button class="gp-btn gp-5" onclick="doEdit(5)">5 — Отлично ⭐</button>
+    <button class="gp-btn gp-4" onclick="doEdit(4)">4 — Хорошо 👍</button>
+    <button class="gp-btn gp-3" onclick="doEdit(3)">3 — Удовл. 😐</button>
+    <button class="gp-btn gp-2" onclick="doEdit(2)">2 — Плохо 😟</button>
+    <button class="gp-btn gp-1" onclick="doEdit(1)">1 — Ужас 😱</button>
+    <div style="border-top:1px solid var(--border); margin-top:5px; padding-top:5px;">
+        <button class="gp-btn" style="background:#FDEDEC; color:#A93226;"
+                onclick="doDelete()">🗑️ Удалить оценку</button>
+    </div>
+</div>
+
+<!-- Модал: добавить оценку вручную -->
+<div class="modal-overlay" id="addGradeModal">
+    <div class="modal-box">
+        <div class="modal-title">➕ Добавить оценку</div>
+        <form method="POST" action="{{ url_for('add_grade') }}">
+            <input type="hidden" name="subject_id" value="{{ subject_id or '' }}">
+            <div class="form-group">
+                <label>👨‍🎓 Ученик</label>
+                <select name="student_id" class="form-control" required>
+                    {% for s in students %}
+                    <option value="{{ s.id }}">{{ s.avatar_emoji }} {{ s.get_full_name() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>⭐ Оценка</label>
+                <select name="value" class="form-control" required>
+                    <option value="5">5 — Отлично ⭐</option>
+                    <option value="4">4 — Хорошо 👍</option>
+                    <option value="3">3 — Удовлетворительно 😐</option>
+                    <option value="2">2 — Плохо 😟</option>
+                    <option value="1">1 — Очень плохо 😱</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>📅 Дата</label>
+                <input type="date" name="date" class="form-control"
+                       value="{{ today.isoformat() }}" required>
+            </div>
+            <div class="form-group">
+                <label>💬 Комментарий</label>
+                <input type="text" name="comment" class="form-control"
+                       placeholder="Необязательно...">
+            </div>
+            <div class="flex gap-8 mt-12">
+                <button type="submit" class="btn btn-success">✅ Поставить</button>
+                <button type="button" class="btn btn-ghost"
+                        onclick="closeModal('addGradeModal')">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const GP = document.getElementById('gradePopover');
+const EP = document.getElementById('editPopover');
+let cellData   = null;
+let editGradeId = null;
+
+function closeAll() {
+    GP.style.display = 'none';
+    EP.style.display = 'none';
+}
+
+function placeEl(el, x, y) {
+    el.style.display = 'block';
+    // Даём браузеру отрисовать чтобы получить размеры
+    requestAnimationFrame(() => {
+        const w = el.offsetWidth  || 180;
+        const h = el.offsetHeight || 200;
+        let left = x + 4;
+        let top  = y + 4;
+        if (left + w > window.innerWidth  - 8) left = window.innerWidth  - w - 8;
+        if (top  + h > window.innerHeight - 8) top  = y - h - 4;
+        if (left < 8) left = 8;
+        if (top  < 8) top  = 8;
+        el.style.left = left + 'px';
+        el.style.top  = top  + 'px';
+    });
+}
+
+function openGradePopover(evt, studentId, dateStr, subjectId, name) {
+    evt.stopPropagation();
+    closeAll();
+    cellData = { student_id: studentId, date: dateStr, subject_id: subjectId };
+    document.getElementById('gpTitle').textContent = name + ' · ' + dateStr.slice(5).replace('-', '.');
+    placeEl(GP, evt.clientX, evt.clientY);
+}
+
+function quickGrade(value) {
+    if (!cellData) return;
+    closeAll();
+    fetch('/api/grades/cell', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ ...cellData, value: value })
+    })
+    .then(r => r.json())
+    .then(data => { if (data.success) location.reload(); })
+    .catch(() => { location.reload(); });
+}
+
+function openEditPopover(evt, gradeId, currentVal) {
+    evt.stopPropagation();
+    closeAll();
+    editGradeId = gradeId;
+    placeEl(EP, evt.clientX, evt.clientY);
+}
+
+function doEdit(newVal) {
+    if (!editGradeId) return;
+    closeAll();
+    fetch('/teacher/grade/edit/' + editGradeId, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ value: newVal })
+    })
+    .then(r => r.json())
+    .then(data => { if (data.success) location.reload(); })
+    .catch(() => { location.reload(); });
+}
+
+function doDelete() {
+    if (!editGradeId) return;
+    if (!confirm('Удалить эту оценку?')) return;
+    closeAll();
+    fetch('/teacher/grade/delete/' + editGradeId, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => { if (data.success) location.reload(); })
+    .catch(() => { location.reload(); });
+}
+
+// Закрывать поповеры при клике в сторону
+document.addEventListener('click', closeAll);
+document.addEventListener('touchstart', function(e) {
+    if (!GP.contains(e.target) && !EP.contains(e.target)) closeAll();
+}, { passive: true });
+
+// Модалки
+function showModal(id) {
+    document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('open');
+    });
+});
+</script>
+{% endblock %}

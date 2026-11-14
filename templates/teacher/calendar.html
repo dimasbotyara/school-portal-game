@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title_extra %} — Календарь{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">🗓️ Календарь контрольных</h1>
+
+    <div class="grid-2">
+        <!-- Календарь -->
+        <div class="card">
+            <div class="calendar-nav">
+                <a href="{{ url_for('teacher_calendar', year=prev_year, month=prev_month) }}"
+                   class="btn btn-sm btn-ghost">◀</a>
+                <div class="fw-900" style="font-size:1.05em;">{{ month_name }} {{ year }}</div>
+                <a href="{{ url_for('teacher_calendar', year=next_year, month=next_month) }}"
+                   class="btn btn-sm btn-ghost">▶</a>
+            </div>
+
+            <div class="calendar-grid">
+                {% for h in ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'] %}
+                <div class="cal-header">{{ h }}</div>
+                {% endfor %}
+
+                {% for week in cal %}
+                    {% for day in week %}
+                    {% if day == 0 %}
+                    <div class="cal-day cal-empty"></div>
+                    {% else %}
+                    {% set d = date(year, month, day) %}
+                    {% set dkey = d.isoformat() %}
+                    <div class="cal-day {{ 'cal-today' if d == today }} {{ 'cal-weekend' if d.weekday() >= 5 }}">
+                        <div class="cal-day-num">{{ day }}</div>
+                        {% if dkey in controls_by_date %}
+                        <div class="cal-dots">
+                            {% for ctrl in controls_by_date[dkey] %}
+                            <span class="cal-dot" style="background:{{ ctrl.color }};" title="{{ ctrl.title }}"></span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Форма добавления -->
+        <div class="card">
+            <div class="card-title">➕ Запланировать контрольную</div>
+            <form method="POST" action="{{ url_for('add_control') }}">
+                <div class="form-group">
+                    <label>📚 Предмет</label>
+                    <select name="subject_id" class="form-control" required>
+                        {% for s in subjects %}
+                        <option value="{{ s.id }}">{{ s.emoji }} {{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>✏️ Название</label>
+                    <input type="text" name="title" class="form-control" placeholder="Контрольная по теме..." required>
+                </div>
+                <div class="form-group">
+                    <label>📅 Дата</label>
+                    <input type="date" name="date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>📄 Описание (что учить)</label>
+                    <textarea name="description" class="form-control" rows="2" placeholder="Что повторить, какие темы..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>🎨 Цвет</label>
+                    <input type="color" name="color" value="#667eea" class="form-control" style="height:44px; padding:5px;">
+                </div>
+                <button type="submit" class="btn btn-success">📋 Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Список -->
+    <div class="card">
+        <div class="card-title">📋 Все контрольные</div>
+        {% if controls %}
+        {% set upcoming = controls|selectattr('date', '>=', today)|list %}
+        {% set past = controls|selectattr('date', '<', today)|list %}
+
+        {% if upcoming %}
+        <p class="text-xs text-light fw-700 mb-8" style="text-transform:uppercase;">Предстоящие</p>
+        {% for c in upcoming %}
+        <div class="assignment-card" style="border-left-color:{{ c.color }};">
+            <div class="assignment-header">
+                <div>
+                    <span class="subject-tag" style="background:{{ c.color }}22; color:{{ c.color }};">
+                        {{ c.subject_rel.emoji }} {{ c.subject_rel.name }}
+                    </span>
+                </div>
+                <span class="due-badge {{ 'due-today' if c.date == today }}">
+                    📅 {{ c.date.strftime('%d.%m.%Y') }}
+                    {% if c.date == today %}🔴 СЕГОДНЯ{% endif %}
+                </span>
+            </div>
+            <div class="fw-800 mt-8">{{ c.title }}</div>
+            {% if c.description %}<p class="text-sm text-light mt-8">{{ c.description }}</p>{% endif %}
+            <form method="POST" action="{{ url_for('delete_control', ctrl_id=c.id) }}" class="mt-12"
+                  onsubmit="return confirm('Удалить контрольную?')">
+                <button type="submit" class="btn btn-xs btn-outline-danger">🗑️ Удалить</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if past %}
+        <p class="text-xs text-light fw-700 mt-16 mb-8" style="text-transform:uppercase; opacity:.6;">Прошедшие</p>
+        {% for c in past|reverse %}
+        <div class="assignment-card" style="border-left-color:{{ c.color }}; opacity:.5;">
+            <div class="assignment-header">
+                <span class="subject-tag" style="background:{{ c.color }}22; color:{{ c.color }};">{{ c.subject_rel.emoji }} {{ c.subject_rel.name }}</span>
+                <span class="due-badge">✅ {{ c.date.strftime('%d.%m.%Y') }}</span>
+            </div>
+            <div class="fw-700" style="font-size:.9em;">{{ c.title }}</div>
+            <form method="POST" action="{{ url_for('delete_control', ctrl_id=c.id) }}" class="mt-8" onsubmit="return confirm('Удалить?')">
+                <button type="submit" class="btn btn-xs btn-outline-danger">🗑️</button>
+            </form>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% else %}
+        <p class="text-light">Нет контрольных 🎉</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title_extra %} — Успеваемость{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📈 Моя успеваемость</h1>
+    <p class="page-sub">{{ 'Четверть' if period_type == 'quarter' else 'Триместр' }} {{ period }}</p>
+
+    <!-- График за 7 дней -->
+    <div class="card">
+        <div class="card-title">📊 Средний балл за 7 дней</div>
+        {% set has_any = week_data | selectattr('average') | list | length > 0 %}
+        {% if has_any %}
+        <div class="chart-wrap">
+            {% for day in week_data %}
+            <div class="chart-col">
+                {% if day.average is not none and day.average %}
+                    {% set h = [((day.average - 1) / 4 * 130) | int + 20, 20] | max %}
+                    {% if day.average >= 4.5 %}
+                        {% set c = '#2ECC71' %}
+                    {% elif day.average >= 3.5 %}
+                        {% set c = '#4A90D9' %}
+                    {% elif day.average >= 2.5 %}
+                        {% set c = '#F39C12' %}
+                    {% else %}
+                        {% set c = '#E74C3C' %}
+                    {% endif %}
+                    <div class="chart-bar" style="height:{{ h }}px; background:{{ c }};">
+                        <span class="chart-bar-val" style="color:{{ c }};">{{ day.average }}</span>
+                    </div>
+                {% else %}
+                    <div class="chart-bar" style="height:6px; background:var(--border);"></div>
+                {% endif %}
+                <span class="chart-lbl">{{ day.day }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:16px;">
+            <span class="ee" style="font-size:2em;">📭</span>
+            <p>Нет оценок за эту неделю</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- По предметам -->
+    <div class="card">
+        <div class="card-title">📚 Оценки по предметам</div>
+        {% set has_grades = namespace(v=false) %}
+        {% for subj in subjects %}
+            {% if subject_data.get(subj.id) %}
+                {% set has_grades.v = true %}
+            {% endif %}
+        {% endfor %}
+
+        {% if not has_grades.v %}
+        <div class="empty-state" style="padding:16px;">
+            <span class="ee" style="font-size:2em;">📭</span>
+            <p>Нет оценок за этот период</p>
+        </div>
+        {% else %}
+        {% for subj in subjects %}
+        {% set data = subject_data.get(subj.id) %}
+        {% if data %}
+        <div style="padding:12px 0; border-bottom:1px solid var(--border);">
+            <div class="flex items-center justify-between mb-6">
+                <div class="fw-800" style="font-size:.95em;">{{ subj.emoji }} {{ subj.name }}</div>
+                {% if data.average is not none %}
+                    {% if data.average >= 4.5 %}
+                        {% set avg_color = '#2ECC71' %}
+                    {% elif data.average >= 3.5 %}
+                        {% set avg_color = '#4A90D9' %}
+                    {% elif data.average >= 2.5 %}
+                        {% set avg_color = '#F39C12' %}
+                    {% else %}
+                        {% set avg_color = '#E74C3C' %}
+                    {% endif %}
+                <div class="fw-900" style="font-size:1.15em; color:{{ avg_color }};">{{ data.average }}</div>
+                {% endif %}
+            </div>
+            {% if data.grades %}
+            <div class="flex gap-4 flex-wrap mb-6">
+                {% for g in data.grades %}
+                <span class="grade-badge grade-{{ g.value }}">{{ g.value }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if data.average is not none %}
+            <div class="progress-bar-wrap">
+                <div class="progress-bar" style="width:{{ ((data.average / 5) * 100) | int }}%; background:{{ avg_color }};"></div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Награды -->
+    {% if praises %}
+    <div class="card card-gold">
+        <div class="card-title">🏆 Все мои награды ({{ praises|length }})</div>
+        {% for p in praises %}
+        <div class="praise-item">
+            <span style="font-size:1.8em;">{{ p.get_emoji() }}</span>
+            <div style="flex:1; min-width:0;">
+                {% if p.message %}
+                <div class="fw-700 text-sm">{{ p.message }}</div>
+                {% endif %}
+                <div class="text-xs text-light">{{ p.date.strftime('%d.%m.%Y') }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

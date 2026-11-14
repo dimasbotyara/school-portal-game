@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title_extra %} — Предметы{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📚 Управление предметами</h1>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">➕ Добавить предмет</div>
+            <form method="POST">
+                <input type="hidden" name="action" value="add">
+                <div class="form-group">
+                    <label>📖 Название</label>
+                    <input type="text" name="name" class="form-control" placeholder="Название предмета" required>
+                </div>
+                <div class="form-group">
+                    <label>😊 Эмодзи</label>
+                    <input type="text" name="emoji" class="form-control" value="📚" maxlength="4" style="font-size:1.4em;">
+                </div>
+                <div class="form-group">
+                    <label>🎨 Цвет</label>
+                    <input type="color" name="color" value="#4A90D9" class="form-control" style="height:46px; padding:5px;">
+                </div>
+                <button type="submit" class="btn btn-success">💾 Добавить</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📋 Список предметов ({{ subjects|length }})</div>
+            {% for s in subjects %}
+            <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
+                <span style="font-size:1.4em; width:32px; text-align:center;">{{ s.emoji }}</span>
+                <div style="flex:1;">
+                    <div class="fw-800" style="color:{{ s.color }};">{{ s.name }}</div>
+                </div>
+                <div style="width:18px; height:18px; border-radius:50%; background:{{ s.color }}; flex-shrink:0;"></div>
+                <form method="POST" style="margin:0;" onsubmit="return confirm('Удалить предмет «{{ s.name }}»?')">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="subject_id" value="{{ s.id }}">
+                    <button type="submit" class="btn btn-xs btn-outline-danger">🗑️</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% if not subjects %}
+            <p class="text-light">Нет предметов</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

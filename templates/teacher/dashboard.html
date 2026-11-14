@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title_extra %} — Главная{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">👩‍🏫 Панель учителя</h1>
+    <p class="page-sub">
+        📅 {{ get_day_name(today) }}, {{ today.strftime('%d.%m.%Y') }}
+        &nbsp;·&nbsp;
+        {{ 'Четверть' if period_type == 'quarter' else 'Триместр' }} {{ current_period }}
+    </p>
+
+    <div class="grid-2" style="margin-bottom:18px;">
+        <div class="stat-card">
+            <div class="stat-icon blue">👨‍🎓</div>
+            <div class="stat-info"><h3>{{ total_students }}</h3><p>Учеников</p></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">📝</div>
+            <div class="stat-info"><h3>{{ total_grades_today }}</h3><p>Оценок сегодня</p></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon yellow">📋</div>
+            <div class="stat-info"><h3>{{ assignments|length }}</h3><p>Активных заданий</p></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple">⭐</div>
+            <div class="stat-info"><h3>{{ praises_today|length }}</h3><p>Похвал сегодня</p></div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">👨‍🎓 Ученики</div>
+            {% if students %}
+                {% for s in students %}
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border);">
+                    <span style="font-size:1.3em;">{{ s.avatar_emoji }}</span>
+                    <div>
+                        <div class="fw-700" style="font-size:.92em;">{{ s.get_full_name() }}</div>
+                        <div class="text-xs text-light">ID {{ s.id }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state" style="padding:16px;">
+                    <span class="ee" style="font-size:2em;">📭</span>
+                    <p>Нет учеников.</p>
+                    <a href="{{ url_for('teacher_settings') }}" class="btn btn-primary btn-sm mt-8">➕ Добавить в настройках</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <div class="card">
+                <div class="card-title">🗓️ Ближайшие контрольные</div>
+                {% if controls %}
+                    {% for c in controls %}
+                    <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--border);">
+                        <div style="width:6px; height:36px; border-radius:3px; background:{{ c.color }};"></div>
+                        <div>
+                            <div class="fw-700" style="font-size:.9em;">{{ c.title }}</div>
+                            <div class="text-xs text-light">{{ c.subject_rel.emoji }} {{ c.date.strftime('%d.%m') }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-light text-sm">Нет контрольных 🎉</p>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <div class="card-title">📝 Задания</div>
+                {% if assignments %}
+                    {% for a in assignments %}
+                    <div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border);">
+                        <span style="font-size:1.1em;">{{ a.subject.emoji }}</span>
+                        <div style="flex:1;">
+                            <div class="fw-700" style="font-size:.88em;">{{ a.title }}</div>
+                        </div>
+                        <div class="text-xs text-light">{{ a.date_due.strftime('%d.%m') }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-light text-sm">Нет заданий 📭</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">📊 Последние оценки</div>
+        {% if recent_grades %}
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:.88em;">
+                <thead>
+                    <tr style="background:var(--bg);">
+                        <th style="padding:7px 10px; text-align:left; font-weight:800;">Ученик</th>
+                        <th style="padding:7px 10px; font-weight:800;">Предмет</th>
+                        <th style="padding:7px 10px; font-weight:800;">Оценка</th>
+                        <th style="padding:7px 10px; font-weight:800;">Дата</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in recent_grades %}
+                    <tr style="border-bottom:1px solid var(--border);">
+                        <td style="padding:7px 10px;">{{ g.student.get_full_name() }}</td>
+                        <td style="padding:7px 10px; text-align:center;">{{ g.subject.emoji }} {{ g.subject.name }}</td>
+                        <td style="padding:7px 10px; text-align:center;"><span class="grade-badge grade-{{ g.value }}">{{ g.value }}</span></td>
+                        <td style="padding:7px 10px; text-align:center;">{{ g.date.strftime('%d.%m') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="text-light">Ещё нет оценок 📭</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

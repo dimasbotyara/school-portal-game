@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title_extra %} — Тест{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">📝 {{ assignment.title }}</h1>
+    <a href="{{ url_for('student_dashboard') }}" class="btn btn-ghost btn-sm mb-12">⬅️ Назад</a>
+
+    <div class="card">
+        <div class="flex items-center gap-8 flex-wrap mb-12">
+            <span class="subject-tag" style="background:{{ assignment.subject.color }}22; color:{{ assignment.subject.color }};">
+                {{ assignment.subject.emoji }} {{ assignment.subject.name }}
+            </span>
+            {% if assignment.description %}
+            <span class="text-sm text-light">{{ assignment.description }}</span>
+            {% endif %}
+        </div>
+
+        {% if not questions %}
+        <div class="empty-state" style="padding:16px;">
+            <span class="ee" style="font-size:2em;">📭</span>
+            <p>У этого задания нет вопросов</p>
+        </div>
+
+        {% elif already_submitted %}
+        <!-- Результаты -->
+        {% set total = questions | length %}
+        {% set pct = ((correct_count / total) * 100) | int if total > 0 else 0 %}
+
+        <div class="result-box {% if pct >= 90 %}result-great{% elif pct >= 60 %}result-good{% elif pct >= 40 %}result-ok{% else %}result-bad{% endif %}">
+            <div style="font-size:2.5em; margin-bottom:6px;">
+                {% if pct >= 90 %}🏆{% elif pct >= 60 %}👍{% elif pct >= 40 %}📚{% else %}😢{% endif %}
+            </div>
+            <div class="fw-900" style="font-size:1.5em;">{{ correct_count }} / {{ total }}</div>
+            <div class="fw-700 text-light" style="font-size:.9em; margin-top:4px;">
+                {% if pct >= 90 %}Отлично! Всё правильно!
+                {% elif pct >= 60 %}Хорошо! Продолжай стараться!
+                {% elif pct >= 40 %}Неплохо, но можно лучше!
+                {% else %}Нужно повторить тему 📖{% endif %}
+            </div>
+        </div>
+
+        {% for q in questions %}
+        {% set ans = answers_map.get(q.id) %}
+        <div style="background:var(--bg); border-radius:var(--r-sm); padding:13px; margin-bottom:10px;">
+            <div class="fw-800 mb-8" style="font-size:.95em;">{{ loop.index }}. {{ q.text }}</div>
+            {% if q.question_type == 'choice' and q.options %}
+                {% for opt in q.options.split(',') %}
+                {% set opt_c = opt.strip() %}
+                {% set is_correct_opt = opt_c == q.correct_answer.strip() %}
+                {% set is_chosen = ans and ans.answer == opt_c %}
+                <div class="t-option {{ 't-correct' if is_correct_opt else 't-wrong' if is_chosen and not is_correct_opt }}">
+                    <span style="flex:1;">{{ opt_c }}</span>
+                    {% if is_correct_opt %}✅
+                    {% elif is_chosen and not is_correct_opt %}❌{% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="font-size:.9em; padding:4px 0;">
+                    Твой ответ:
+                    <strong>{{ ans.answer if ans and ans.answer else '—' }}</strong>
+                    {% if ans %}
+                        {% if ans.is_correct %}✅
+                        {% else %}❌
+                            <span class="text-light">(верно: <strong>{{ q.correct_answer }}</strong>)</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% else %}
+        <!-- Форма теста -->
+        <form method="POST" id="testForm">
+            {% for q in questions %}
+            <div style="background:var(--bg); border-radius:var(--r-sm); padding:13px; margin-bottom:12px;">
+                <div class="fw-800 mb-10" style="font-size:.95em;">{{ loop.index }}. {{ q.text }}</div>
+                {% if q.question_type == 'choice' and q.options %}
+                    {% for opt in q.options.split(',') %}
+                    {% set opt_c = opt.strip() %}
+                    <label class="t-option" style="cursor:pointer;">
+                        <input type="radio" name="answer_{{ q.id }}" value="{{ opt_c }}" required>
+                        <span>{{ opt_c }}</span>
+                    </label>
+                    {% endfor %}
+                {% else %}
+                    <input type="text" name="answer_{{ q.id }}"
+                           class="form-control"
+                           placeholder="Введи ответ..." required>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="button" class="btn btn-success btn-full"
+                    style="font-size:1em; margin-top:8px;"
+                    onclick="submitTest()">
+                📤 Отправить ответы
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitTest() {
+    // Проверяем что все вопросы отвечены
+    const form = document.getElementById('testForm');
+    if (!form) return;
+    const inputs = form.querySelectorAll('input[required]');
+    let allFilled = true;
+    inputs.forEach(inp => {
+        if (inp.type === 'radio') {
+            const name = inp.name;
+            const checked = form.querySelector('input[name="' + name + '"]:checked');
+            if (!checked) allFilled = false;
+        } else if (!inp.value.trim()) {
+            allFilled = false;
+        }
+    });
+
+    if (!allFilled) {
+        alert('Ответь на все вопросы! 📝');
+        return;
+    }
+
+    if (confirm('Отправить тест? После этого изменить ответы нельзя! 📤')) {
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

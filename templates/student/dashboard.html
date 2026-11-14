@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title_extra %} — Мой кабинет{% endblock %}
+{% block content %}
+<div class="main-content">
+    <h1 class="page-title">{{ current_user.avatar_emoji }} Привет, {{ current_user.first_name }}!</h1>
+    <p class="page-sub">📅 {{ get_day_name(today) }}, {{ today.strftime('%d.%m.%Y') }}</p>
+
+    <!-- Награды -->
+    {% if praises %}
+    <div class="card card-gold">
+        <div class="card-title">🏆 Мои награды</div>
+        <div class="flex flex-wrap gap-6 mb-8">
+            {% for p in praises %}
+            <span class="p-badge" title="{{ p.message or '' }}">{{ p.get_emoji() }}</span>
+            {% endfor %}
+        </div>
+        {% if praises[0].message %}
+        <p class="fw-700" style="font-size:.92em; color:#9A6000;">💬 «{{ praises[0].message }}»</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-icon {% if my_avg and my_avg >= 4.5 %}green{% elif my_avg and my_avg >= 3.5 %}blue{% elif my_avg %}yellow{% else %}purple{% endif %}">📊</div>
+            <div class="stat-info">
+                <h3>{{ my_avg if my_avg else '—' }}</h3>
+                <p>Средний балл</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon purple">⭐</div>
+            <div class="stat-info">
+                <h3>{{ praises|length }}</h3>
+                <p>Наград</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Последние оценки -->
+        <div class="card">
+            <div class="card-title">📊 Последние оценки</div>
+            {% if recent_grades %}
+                {% for g in recent_grades %}
+                <div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border);">
+                    <span class="grade-badge grade-{{ g.value }}">{{ g.value }}</span>
+                    <div style="flex:1; min-width:0;">
+                        <div class="fw-700 text-sm" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            {{ g.subject.emoji }} {{ g.subject.name }}
+                        </div>
+                    </div>
+                    <div class="text-xs text-light fw-700">{{ g.date.strftime('%d.%m') }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state" style="padding:16px;">
+                    <span class="ee" style="font-size:2em;">📭</span>
+                    <p>Нет оценок пока</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <!-- Контрольные -->
+            {% if controls %}
+            <div class="card card-red">
+                <div class="card-title">⚠️ Скоро контрольные!</div>
+                {% for c in controls %}
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(0,0,0,.07);">
+                    <div style="width:5px; height:34px; border-radius:3px; background:{{ c.color }}; flex-shrink:0;"></div>
+                    <div style="min-width:0;">
+                        <div class="fw-700 text-sm" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ c.title }}</div>
+                        <div class="text-xs text-light">
+                            {{ c.subject_rel.emoji }} {{ c.date.strftime('%d.%m') }}
+                            {% if c.date == today %}<span style="color:var(--danger);"> 🔴 Сегодня!</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Расписание на сегодня -->
+            <div class="card">
+                <div class="card-title">📅 Сегодня уроки</div>
+                {% if schedule %}
+                    {% for item in schedule %}
+                    <div class="diary-lesson">
+                        <div class="lesson-num">{{ item.lesson_number }}</div>
+                        <div class="lesson-info">
+                            <div class="lesson-subj">{{ item.subject.emoji }} {{ item.subject.name }}</div>
+                            {% if item.time_start %}
+                            <div class="lesson-time">{{ item.time_start }}{% if item.time_end %} — {{ item.time_end }}{% endif %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-light text-sm">
+                        {% if day_of_week >= 5 %}Выходной! 🎉{% else %}Нет уроков{% endif %}
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ДЗ -->
+    <div class="card">
+        <div class="card-title">📝 Домашние задания</div>
+        {% if assignments %}
+            {% for a in assignments %}
+            {% set comp = completions.get(a.id) %}
+            {% set done = comp and comp.completed %}
+            <div class="assignment-card {{ 'completed' if done }}" style="border-left-color:{{ a.subject.color }};">
+                <div class="hw-toggle">
+                    <div class="hw-check {{ 'done' if done }}"
+                         id="chk{{ a.id }}"
+                         onclick="toggleHW({{ a.id }})">{{ '✓' if done }}</div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="flex items-center gap-6 flex-wrap mb-4">
+                            <span class="subject-tag" style="background:{{ a.subject.color }}22; color:{{ a.subject.color }};">
+                                {{ a.subject.emoji }} {{ a.subject.name }}
+                            </span>
+                            <span class="due-badge {% if a.date_due < today %}overdue{% elif a.date_due == today %}due-today{% endif %}">
+                                📅 до {{ a.date_due.strftime('%d.%m') }}
+                            </span>
+                        </div>
+                        <div class="fw-800 hw-title" style="font-size:.95em;">{{ a.title }}</div>
+                        {% if a.description %}
+                        <p class="text-sm text-light mt-4">{{ a.description }}</p>
+                        {% endif %}
+                        {% if a.questions|length > 0 %}
+                        <a href="{{ url_for('student_test', assignment_id=a.id) }}" class="btn btn-sm btn-primary mt-8">
+                            {% if done %}📊 Посмотреть результат{% else %}📝 Пройти тест{% endif %}
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state" style="padding:20px;">
+                <span class="ee">🎉</span>
+                <p>Нет заданий! Отдыхай!</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleHW(id) {
+    const el = document.getElementById('chk' + id);
+    fetch('/student/complete_homework/' + id, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            const card = el.closest('.assignment-card');
+            if (d.completed) {
+                el.classList.add('done');
+                el.innerHTML = '✓';
+                card.classList.add('completed');
+            } else {
+                el.classList.remove('done');
+                el.innerHTML = '';
+                card.classList.remove('completed');
+            }
+        }
+    })
+    .catch(() => {});
+}
+</script>
+{% endblock %}
